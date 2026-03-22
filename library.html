@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>مكتبة الرسائل</title>
+
+<style>
+body{
+margin:0;
+font-family:Arial;
+direction:rtl;
+background:#d9c2ff;
+padding:20px;
+padding-bottom:140px;
+}
+
+.box{
+background:white;
+padding:20px;
+border-radius:20px;
+max-width:700px;
+margin:auto;
+box-shadow:0 10px 30px rgba(0,0,0,.15);
+}
+
+.message{
+padding:12px;
+margin:10px 0;
+border-radius:14px;
+background:#f3f3f3;
+}
+
+.star{background:#fff4c2;}
+.moon{background:#e4dcff;}
+.fullmoon{background:#fff0b8;}
+.halfmoon{background:#dde8ff;}
+.sun{background:#ffe2b3;}
+
+button{
+margin-top:10px;
+padding:10px 15px;
+border:none;
+background:#ff5e78;
+color:white;
+border-radius:10px;
+cursor:pointer;
+}
+
+input{
+padding:10px;
+width:80%;
+border-radius:10px;
+}
+
+.inputBar{
+position:fixed;
+bottom:15px;
+left:50%;
+transform:translateX(-50%);
+background:white;
+padding:10px;
+border-radius:18px;
+box-shadow:0 5px 20px rgba(0,0,0,.15);
+width:90%;
+max-width:700px;
+display:flex;
+gap:8px;
+align-items:center;
+}
+
+.inputBar textarea{
+flex:1;
+height:45px;
+border-radius:12px;
+padding:10px;
+resize:none;
+font-size:15px;
+}
+
+.inputBar button{
+height:45px;
+padding:0 18px;
+margin:0;
+}
+
+select{
+padding:10px;
+border-radius:10px;
+}
+
+#backNow{
+display:none;
+position:fixed;
+bottom:80px;
+left:20px;
+padding:10px 15px;
+border:none;
+border-radius:12px;
+background:#7a5cff;
+color:white;
+cursor:pointer;
+z-index:999;
+}
+</style>
+</head>
+<body>
+
+<div class="box" id="login">
+<h2>رمز الدخول 🔐</h2>
+<input id="pin"><br>
+<button onclick="checkPin()">دخول</button>
+</div>
+
+<div class="box" id="library" style="display:none;">
+<h2>مكتبة الرسائل 📚</h2>
+<div id="messages"></div>
+<button onclick="window.location.href='index.html'">العودة</button>
+</div>
+
+<div class="inputBar" id="inputBar" style="display:none;">
+
+<select id="sender">
+<option value="⭐">⭐</option>
+<option value="🌙">🌙</option>
+<option value="🌕">🌕</option>
+<option value="🌓">🌓</option>
+<option value="☀️">☀️</option>
+</select>
+
+<textarea id="newMsg"></textarea>
+
+<button onclick="sendDirect()">إرسال</button>
+
+</div>
+
+<button id="backNow" onclick="goPresent()">العودة للحاضر</button>
+
+<script type="module">
+
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+
+import {
+getFirestore,
+collection,
+query,
+orderBy,
+doc,
+getDoc,
+addDoc,
+serverTimestamp,
+onSnapshot
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+const firebaseConfig = {
+apiKey: "AIzaSyBHIZp9BwmQ8s4O1s7x1Iuesz4zpEyRJ2U",
+authDomain: "my-profacto-messages-library.firebaseapp.com",
+projectId: "my-profacto-messages-library",
+storageBucket: "my-profacto-messages-library.firebasestorage.app",
+messagingSenderId: "520812951520",
+appId: "1:520812951520:web:4f3edc0996d32c3cda9d85"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+
+Notification.requestPermission();
+
+let allMessages=[];
+let firstLoad=true;
+
+window.checkPin=async function(){
+
+const docRef=doc(db,"settings","main");
+const docSnap=await getDoc(docRef);
+
+if(docSnap.exists()){
+
+let realPass=docSnap.data().pass;
+
+if(document.getElementById('pin').value===realPass){
+
+document.getElementById('login').style.display='none';
+document.getElementById('library').style.display='block';
+document.getElementById('inputBar').style.display='flex';
+
+loadMessages();
+
+}else{
+alert("رمز خطأ");
+}
+
+}
+
+};
+
+function loadMessages(){
+
+let q=query(collection(db,"messages"),orderBy("time","desc"));
+
+onSnapshot(q,(snapshot)=>{
+
+let previousCount=allMessages.length;
+
+allMessages=[];
+
+snapshot.forEach(doc=>{
+allMessages.push(doc.data());
+});
+
+if(!firstLoad && allMessages.length>previousCount){
+
+let audio=new Audio("https://actions.google.com/sounds/v1/alarms/notification_alert.ogg");
+audio.play();
+
+if(Notification.permission==="granted"){
+new Notification("رسالة جديدة 📩",{
+body:"وصلتك رسالة جديدة"
+});
+}
+
+}
+
+firstLoad=false;
+
+document.getElementById('messages').innerHTML='';
+
+window.showMessages(window.currentLimit||10);
+
+});
+
+}
+
+window.showMessages=function(limit){
+
+window.currentLimit=limit;
+
+let html='';
+
+allMessages.slice(0,limit).forEach(d=>{
+
+let cls="moon";
+
+if(d.sender==="⭐") cls="star";
+if(d.sender==="🌙") cls="moon";
+if(d.sender==="🌕") cls="fullmoon";
+if(d.sender==="🌓") cls="halfmoon";
+if(d.sender==="☀️") cls="sun";
+
+html+=`
+<div class="message ${cls}">
+${d.sender} ${d.text}
+<br>
+<button onclick="reply('${d.text}')">Reply</button>
+</div>
+`;
+
+});
+
+if(allMessages.length>limit){
+
+html+=`
+<div style="text-align:center;font-size:25px;">...</div>
+<button onclick="showMessages(${limit+10})">إظهار المزيد</button>
+`;
+
+}
+
+document.getElementById('messages').innerHTML=html;
+
+}
+
+window.sendDirect=async function(){
+
+let text=document.getElementById('newMsg').value.trim();
+
+if(text==="") return;
+
+let sender=document.getElementById('sender').value;
+
+await addDoc(collection(db,"messages"),{
+text:text,
+sender:sender,
+time:serverTimestamp()
+});
+
+document.getElementById('newMsg').value='';
+
+};
+
+window.reply=function(t){
+document.getElementById('newMsg').value="↩️ "+t+" ";
+}
+
+window.goPresent=function(){
+window.scrollTo({
+top:0,
+behavior:'smooth'
+});
+}
+
+window.addEventListener('scroll',()=>{
+
+if(window.scrollY>800){
+document.getElementById('backNow').style.display='block';
+}else{
+document.getElementById('backNow').style.display='none';
+}
+
+});
+
+</script>
+
+</body>
+</html>
